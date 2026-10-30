@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DriveFy - Gestão e Cadastro de Veículos</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        drive: {
+                            cyan: '#22d3ee',      // Vibrant primary electric cyan
+                            hover: '#67e8f9',     // Hover state cyan
+                            black: '#090b0e',     // Darkest background
+                            dark: '#11161d',      // Secondary background
+                            card: '#161c24',      // Card surface
+                            cardHover: '#1f2733', // Card hover state
+                            border: '#2a3442',    // Border tone
+                            subtext: '#8c9ba8'    // Subtle muted text
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Standalone React & Babel Libraries -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #090b0e; color: white; }
+        .hero { background: linear-gradient(180deg, #102a36 0%, #11161d 100%); }
+        .modal { background: rgba(17, 22, 29, 0.97); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-drive-black text-white min-h-screen selection:bg-cyan-500 selection:text-black">
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    // SVG Icons tailored for automotive management
+    const Icons = {
+        Car: ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H7c-.7 0-1.3.3-1.8.7C4.3 8.6 3 10 3 10s-2.7.6-4.5 1.1C.7 11.3 0 12.1 0 13v3c0 .6.4 1 1 1h2" />
+                <circle cx="7" cy="17" r="2" />
+                <path d="M9 17h6" />
+                <circle cx="17" cy="17" r="2" />
+            </svg>
+        ),
+        Gauge: ({ size = 20 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 15l3.5-3.5" />
+                <path d="M20.3 18c.4-1 .7-2.2.7-3.4 0-4.9-4-8.9-8.9-8.9a8.9 8.9 0 0 0-8.9 8.9c0 1.2.3 2.4.7 3.4" />
+            </svg>
+        ),
+        Home: ({ size = 20 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>
+        ),
+        Plus: ({ size = 18 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        ),
+        Search: ({ size = 18 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        ),
+        Edit: ({ size = 16 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m15 5 4 4M4 20l4-.8L20 7a2.8 2.8 0 0 0-4-4L4 15z"/></svg>
+        ),
+        Trash: ({ size = 16 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6"/></svg>
+        ),
+        Shield: ({ size = 16 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        )
+    };
+
+    // Initial state object for forms
+    const EMPTY = {
+        modelo: '',
+        tipo: 'CARRO',
+        marca: '',
+        cambio: 'AUTOMATICO',
+        anoFabricacao: '',
+        quilometragem: '',
+        cor: '',
+        blindado: false,
+        statusRevisao: 'EM_DIA',
+        observacoes: ''
+    };
+
+    function App() {
+        const [tela, setTela] = useState('principal');
+        const [apiUrl, setApiUrl] = useState('http://localhost:8080/api/veiculos');
+        const [urlEdit, setUrlEdit] = useState(apiUrl);
+        const [showConfig, setShowConfig] = useState(false);
+        const [statusApi, setStatusApi] = useState('carregando');
+        const [erroDetalhe, setErroDetalhe] = useState('');
+        const [veiculos, setVeiculos] = useState([]);
+        const [busca, setBusca] = useState('');
+        const [filtro, setFiltro] = useState('TODOS');
+        const [form, setForm] = useState(EMPTY);
+        const [editando, setEditando] = useState(null);
+        const [deletando, setDeletando] = useState(null);
+        const [toast, setToast] = useState(null);
+        const [carregando, setCarregando] = useState(false);
+
+        // Helper notification toast handler
+        const avisar = (mensagem, tipo = 'info') => {
+            setToast({ mensagem, tipo });
+            setTimeout(() => setToast(null), 3800);
+        };
+
+        // Generic REST API caller
+        const request = async (path = '', options = {}) => {
+            const res = await fetch(`${apiUrl.replace(/\/$/, '')}${path}`, options);
+            if (!res.ok) throw new Error(`A API respondeu com status ${res.status}`);
+            if (res.status === 204) return null;
+            const text = await res.text();
+            return text ? JSON.parse(text) : null;
+        };
+
+        // Fetch list of vehicles from API
+        const carregarVeiculos = async () => {
+            setCarregando(true);
+            setErroDetalhe('');
+            try {
+                const dados = await request();
+                setVeiculos(Array.isArray(dados) ? dados : (dados ? [dados] : []));
+                setStatusApi('conectado');
+            } catch (e) {
+                setStatusApi('erro');
+                setErroDetalhe(e.message || 'Não foi possível conectar à API.');
+            } finally {
+                setCarregando(false);
+            }
+        };
+
+        useEffect(() => {
+            carregarVeiculos();
+        }, [apiUrl]);
+
+        // Create or Update vehicle
+        const salvar = async (e) => {
+            e.preventDefault();
+            const dados = {
+                ...form,
+                quilometragem: form.quilometragem === '' ? null : Number(form.quilometragem),
+                anoFabricacao: form.anoFabricacao === '' ? null : Number(form.anoFabricacao)
+            };
+
+            try {
+                if (editando !== null) {
+                    await request('/' + editando, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(dados)
+                    });
+                    avisar('Veículo atualizado na garagem!', 'sucesso');
+                } else {
+                    await request('', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(dados)
+                    });
+                    avisar('Veículo cadastrado na garagem!', 'sucesso');
+                }
+                setForm(EMPTY);
+                setEditando(null);
+                setTela('principal');
+                await carregarVeiculos();
+            } catch (err) {
+                avisar(`Não foi possível salvar: ${err.message}`, 'erro');
+            }
+        };
+
+        // Prepare edit mode
+        const editar = (v) => {
+            setForm({
+                modelo: v.modelo || '',
+                tipo: v.tipo || 'CARRO',
+                marca: v.marca || '',
+                cambio: v.cambio || 'AUTOMATICO',
+                anoFabricacao: v.anoFabricacao ?? '',
+                quilometragem: v.quilometragem ?? '',
+                cor: v.cor || '',
+                blindado: !!v.blindado,
+                statusRevisao: v.statusRevisao || 'EM_DIA',
+                observacoes: v.observacoes || ''
+            });
+            setEditando(v.id);
+            setTela('cadastro');
+        };
+
+        // Delete vehicle
+        const excluir = async (id) => {
+            try {
+                await request('/' + id, { method: 'DELETE' });
+                avisar('Veículo removido com sucesso!', 'sucesso');
+                setDeletando(null);
+                await carregarVeiculos();
+            } catch (err) {
+                avisar(`Não foi possível excluir: ${err.message}`, 'erro');
+            }
+        };
+
+        // Filter & Search logic
+        const filtrados = useMemo(() => veiculos.filter(v => {
+            const texto = [v.modelo, v.tipo, v.marca, v.cor].filter(Boolean).join(' ').toLowerCase();
+            return texto.includes(busca.toLowerCase()) && (filtro === 'TODOS' || v.tipo === filtro);
+        }), [veiculos, busca, filtro]);
+
+        const carrosCount = veiculos.filter(v => v.tipo === 'CARRO').length;
+        const motosCount = veiculos.filter(v => v.tipo === 'MOTO').length;
+
+        const field = 'w-full bg-neutral-900 border border-drive-border rounded-lg p-3 text-sm text-white focus:outline-none focus:border-cyan-400 transition';
+        const label = 'block text-drive-subtext font-bold mb-1.5 uppercase tracking-wider text-[10px]';
+
+        return (
+            <div className="flex min-h-screen bg-drive-black text-white">
+                {/* Toast Notifications */}
+                {toast && (
+                    <div className={`fixed top-5 right-5 z-[70] px-4 py-3 rounded-xl text-xs font-semibold shadow-2xl border ${
+                        toast.tipo === 'sucesso'
+                            ? 'bg-neutral-900 text-cyan-300 border-cyan-500/40'
+                            : toast.tipo === 'erro'
+                                ? 'bg-neutral-900 text-rose-400 border-rose-500/40'
+                                : 'bg-neutral-900 text-white border-neutral-700'
+                    }`}>
+                        {toast.mensagem}
+                    </div>
+                )}
+
+                {/* Sidebar Desktop */}
+                <aside className="w-64 bg-black p-5 hidden md:flex flex-col justify-between border-r border-neutral-900">
+                    <div className="space-y-8">
+                        <div className="flex items-center gap-3 px-2">
+                            <span className="text-cyan-400"><Icons.Car size={32} /></span>
+                            <span className="text-2xl font-extrabold tracking-tight">drive<span className="text-cyan-400">Fy</span></span>
+                        </div>
+                        <nav className="space-y-2">
+                            <button
+                                onClick={() => setTela('principal')}
+                                className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-bold transition ${
+                                    tela === 'principal' ? 'bg-drive-cardHover text-cyan-300' : 'text-drive-subtext hover:text-white'
+                                }`}
+                            >
+                                <Icons.Home /> Frota e Garagem
+                            </button>
+                            <button
+                                onClick={() => { setForm(EMPTY); setEditando(null); setTela('cadastro'); }}
+                                className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-bold transition ${
+                                    tela === 'cadastro' ? 'bg-drive-cardHover text-cyan-300' : 'text-drive-subtext hover:text-white'
+                                }`}
+                            >
+                                <Icons.Plus /> Cadastrar veículo
+                            </button>
+                        </nav>
+                    </div>
+
+                    {/* API Status Box */}
+                    <div className="bg-drive-dark p-3 rounded-xl border border-drive-border">
+                        <span className="text-drive-subtext block text-[10px] uppercase font-bold mb-1">API Backend</span>
+                        <div className="text-[11px] font-mono break-all mb-3 text-neutral-300">{apiUrl}</div>
+                        <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2 text-xs">
+              <span className={`w-2 h-2 rounded-full ${
+                  statusApi === 'conectado' ? 'bg-cyan-400' : statusApi === 'carregando' ? 'bg-amber-400' : 'bg-rose-500'
+              }`}></span>
+                {statusApi === 'conectado' ? 'Conectada' : statusApi === 'carregando' ? 'Conectando' : 'Erro de conexão'}
+            </span>
+                            <button
+                                onClick={() => { setUrlEdit(apiUrl); setShowConfig(true); }}
+                                className="text-xs text-cyan-400 hover:underline font-semibold"
+                            >
+                                Alterar
+                            </button>
+                        </div>
+                    </div>
+                </aside>
+
+                {/* Main Content Area */}
+                <main className="flex-1 min-w-0">
+                    {/* Top Header */}
+                    <header className="sticky top-0 z-30 bg-black/90 backdrop-blur border-b border-neutral-900 px-5 md:px-8 py-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3 md:hidden">
+                            <span className="text-cyan-400"><Icons.Car size={26} /></span>
+                            <b className="text-xl tracking-tight">drive<span className="text-cyan-400">Fy</span></b>
+                        </div>
+                        <div className="hidden md:block text-xs text-drive-subtext font-medium">
+                            GARAGEM & AUTOMOTIVO / <span className="text-white font-bold">{tela === 'cadastro' ? 'NOVO VEÍCULO' ? editando ? 'EDITAR VEÍCULO' : 'CADASTRO' : 'CADASTRO' : 'PAINEL DE FROTA'}</span>
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => carregarVeiculos()}
+                                className="px-3 py-2 rounded-full border border-drive-border text-xs font-bold hover:bg-drive-card transition"
+                            >
+                                {carregando ? 'Atualizando...' : '↻ Atualizar'}
+                            </button>
+                            <button
+                                onClick={() => { setForm(EMPTY); setEditando(null); setTela('cadastro'); }}
+                                className="flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-400 text-black text-xs font-extrabold hover:bg-cyan-300 transition"
+                            >
+                                <Icons.Plus /> Novo veículo
+                            </button>
+                        </div>
+                    </header>
+
+                    <div className="p-5 md:p-8 max-w-7xl mx-auto">
+                        {tela === 'principal' ? (
+                            <>
+                                {/* Hero Banner */}
+                                <section className="hero rounded-2xl p-7 md:p-10 mb-7 border border-cyan-900/40">
+                                    <p className="text-cyan-400 text-xs uppercase tracking-[.25em] font-extrabold mb-3">Gestão de Garagem de Alta Performance</p>
+                                    <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-3">Sua frota sob controle <span className="text-cyan-400">total.</span></h1>
+                                    <p className="text-drive-subtext max-w-xl text-sm leading-6">Gerencie carros, motos e veículos comerciais com dados sincronizados em tempo real através da sua API REST.</p>
+                                </section>
+
+                                {/* Error Callout */}
+                                {statusApi === 'erro' && (
+                                    <div className="mb-5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm">
+                                        <b className="text-rose-300">Não foi possível conectar à API de Veículos.</b>
+                                        <p className="text-drive-subtext mt-1">{erroDetalhe}</p>
+                                        <p className="text-drive-subtext mt-1">Verifique se o servidor backend está em execução e aceitando requisições (CORS).</p>
+                                        <button onClick={() => { setUrlEdit(apiUrl); setShowConfig(true); }} className="mt-3 text-cyan-400 font-bold hover:underline">Configurar endpoint</button>
+                                    </div>
+                                )}
+
+                                {/* Summary Stats Grid */}
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-7">
+                                    <div className="bg-drive-card border border-drive-border rounded-xl p-5">
+                                        <p className="text-drive-subtext text-xs font-bold uppercase">Total na Garagem</p>
+                                        <p className="text-3xl font-extrabold mt-2 text-white">{veiculos.length}</p>
+                                    </div>
+                                    <div className="bg-drive-card border border-drive-border rounded-xl p-5">
+                                        <p className="text-drive-subtext text-xs font-bold uppercase">Carros Registrados</p>
+                                        <p className="text-3xl font-extrabold mt-2 text-cyan-400">{carrosCount}</p>
+                                    </div>
+                                    <div className="bg-drive-card border border-drive-border rounded-xl p-5">
+                                        <p className="text-drive-subtext text-xs font-bold uppercase">Motos Registradas</p>
+                                        <p className="text-3xl font-extrabold mt-2 text-cyan-400">{motosCount}</p>
+                                    </div>
+                                </div>
+
+                                {/* Controls & Search Toolbar */}
+                                <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-5">
+                                    <div>
+                                        <h2 className="text-xl font-extrabold">Veículos Cadastrados</h2>
+                                        <p className="text-drive-subtext text-xs mt-1">Registros de veículos retornados pela API</p>
+                                    </div>
+                                    <div className="flex flex-col sm:flex-row gap-2">
+                                        <div className="flex items-center gap-2 bg-drive-dark border border-drive-border rounded-full px-4">
+                                            <Icons.Search />
+                                            <input
+                                                value={busca}
+                                                onChange={e => setBusca(e.target.value)}
+                                                placeholder="Buscar modelo, marca, cor..."
+                                                className="bg-transparent py-2.5 text-sm outline-none w-full sm:w-48 text-white placeholder-drive-subtext"
+                                            />
+                                        </div>
+                                        <select
+                                            value={filtro}
+                                            onChange={e => setFiltro(e.target.value)}
+                                            className="bg-drive-dark border border-drive-border rounded-full px-4 py-2.5 text-sm outline-none text-white cursor-pointer"
+                                        >
+                                            <option value="TODOS">Todos os tipos</option>
+                                            <option value="CARRO">Carros</option>
+                                            <option value="MOTO">Motos</option>
+                                            <option value="CAMINHAO">Caminhões</option>
+                                            <option value="VAN">Vans</option>
+                                            <option value="OUTRO">Outros</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Vehicle Cards Grid / Empty States */}
+                                {carregando && veiculos.length === 0 ? (
+                                    <div className="text-center py-16 text-drive-subtext">Carregando frota de veículos da API...</div>
+                                ) : filtrados.length === 0 ? (
+                                    <div className="bg-drive-card border border-drive-border rounded-2xl p-12 text-center">
+                                        <div className="text-cyan-400 flex justify-center mb-4"><Icons.Car size={42} /></div>
+                                        <h3 className="font-extrabold text-lg">{statusApi === 'erro' ? 'Não foi possível carregar os veículos' : 'Nenhum veículo encontrado'}</h3>
+                                        <p className="text-drive-subtext text-sm mt-2">{statusApi === 'erro' ? 'Verifique a conexão com o servidor backend.' : 'Cadastre o primeiro veículo ou limpe os filtros de busca.'}</p>
+                                        <button
+                                            onClick={() => { setForm(EMPTY); setEditando(null); setTela('cadastro'); }}
+                                            className="mt-5 inline-flex items-center gap-2 rounded-full bg-cyan-400 text-black px-5 py-3 font-extrabold text-sm hover:bg-cyan-300 transition"
+                                        >
+                                            <Icons.Plus /> Cadastrar veículo
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                                        {filtrados.map((v, i) => (
+                                            <article key={v.id ?? i} className="bg-drive-card border border-drive-border rounded-2xl p-5 hover:bg-drive-cardHover transition flex flex-col justify-between">
+                                                <div>
+                                                    <div className="flex justify-between items-start gap-3">
+                                                        <div className="flex gap-3 min-w-0">
+                                                            <div className="w-12 h-12 shrink-0 rounded-xl bg-cyan-400/10 text-cyan-400 flex items-center justify-center">
+                                                                <Icons.Car size={25} />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <h3 className="font-extrabold text-lg truncate">{v.modelo || 'Sem modelo'}</h3>
+                                                                <p className="text-drive-subtext text-xs mt-1">
+                                                                    {v.tipo || 'Veículo'} {v.marca ? '· ' + v.marca : ''}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <span className="text-[10px] font-bold bg-neutral-800 text-cyan-400 px-2 py-1 rounded-full border border-neutral-700">
+                            #{v.id ?? '—'}
+                          </span>
+                                                    </div>
+
+                                                    {/* Details badges */}
+                                                    <div className="grid grid-cols-2 gap-2.5 mt-5 text-xs">
+                                                        <div className="bg-black/30 rounded-lg p-2.5">
+                                                            <p className="text-drive-subtext text-[10px] uppercase font-bold mb-0.5">Câmbio</p>
+                                                            <b>{v.cambio === 'AUTOMATICO' ? 'Automático' : v.cambio === 'MANUAL' ? 'Manual' : v.cambio || 'N/I'}</b>
+                                                        </div>
+                                                        <div className="bg-black/30 rounded-lg p-2.5">
+                                                            <p className="text-drive-subtext text-[10px] uppercase font-bold mb-0.5">Quilometragem</p>
+                                                            <b>{v.quilometragem != null && v.quilometragem !== '' ? `${Number(v.quilometragem).toLocaleString('pt-BR')} km` : 'Não informada'}</b>
+                                                        </div>
+                                                        <div className="bg-black/30 rounded-lg p-2.5">
+                                                            <p className="text-drive-subtext text-[10px] uppercase font-bold mb-0.5">Revisão</p>
+                                                            <b className={v.statusRevisao === 'EM_DIA' ? 'text-emerald-400' : v.statusRevisao === 'PENDENTE' ? 'text-amber-400' : 'text-rose-400'}>
+                                                                {v.statusRevisao === 'EM_DIA' ? 'Em dia' : v.statusRevisao === 'PENDENTE' ? 'Pendente' : v.statusRevisao === 'EM_MANUTENCAO' ? 'Em manutenção' : v.statusRevisao || 'N/I'}
+                                                            </b>
+                                                        </div>
+                                                        <div className="bg-black/30 rounded-lg p-2.5">
+                                                            <p className="text-drive-subtext text-[10px] uppercase font-bold mb-0.5">Ano / Cor</p>
+                                                            <b>{v.anoFabricacao || 'S/A'} {v.cor ? `· ${v.cor}` : ''}</b>
+                                                        </div>
+                                                    </div>
+
+                                                    {v.blindado && (
+                                                        <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-cyan-950/60 border border-cyan-800/50 text-cyan-300 text-[11px] font-bold">
+                                                            <Icons.Shield size={13} /> Blindagem Homologada
+                                                        </div>
+                                                    )}
+
+                                                    {v.observacoes && (
+                                                        <p className="text-xs text-drive-subtext mt-3 line-clamp-2 italic">"{v.observacoes}"</p>
+                                                    )}
+                                                </div>
+
+                                                {/* Card Action Buttons */}
+                                                <div className="flex gap-2 mt-5 pt-4 border-t border-drive-border">
+                                                    <button
+                                                        onClick={() => editar(v)}
+                                                        className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-drive-border py-2 text-xs font-bold hover:bg-neutral-800 transition"
+                                                    >
+                                                        <Icons.Edit /> Editar
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setDeletando(v.id)}
+                                                        className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-rose-900/50 text-rose-300 py-2 text-xs font-bold hover:bg-rose-500/10 transition"
+                                                    >
+                                                        <Icons.Trash /> Excluir
+                                                    </button>
+                                                </div>
+                                            </article>
+                                        ))}
+                                    </div>
+                                )}
+                                <p className="text-[10px] text-drive-subtext mt-6">Endpoint REST ativo: <code>{apiUrl}</code> · Suporta métodos GET, POST, PUT e DELETE</p>
+                            </>
+                        ) : (
+                            /* Vehicle Form View */
+                            <section className="max-w-3xl mx-auto">
+                                <button
+                                    onClick={() => { setTela('principal'); setEditando(null); setForm(EMPTY); }}
+                                    className="text-drive-subtext hover:text-white text-sm mb-5 flex items-center gap-1 transition"
+                                >
+                                    ← Voltar para a garagem
+                                </button>
+                                <div className="bg-drive-card border border-drive-border rounded-2xl overflow-hidden shadow-2xl">
+                                    <div className="hero p-6 md:p-8 border-b border-drive-border">
+                                        <p className="text-cyan-400 text-xs font-extrabold uppercase tracking-[.2em] mb-2">Ficha Técnica do Veículo</p>
+                                        <h1 className="text-2xl md:text-3xl font-extrabold">{editando !== null ? 'Editar cadastro do veículo' : 'Cadastrar novo veículo'}</h1>
+                                        <p className="text-drive-subtext text-sm mt-2">Preencha as especificações abaixo para salvar na API REST.</p>
+                                    </div>
+
+                                    <form onSubmit={salvar} className="p-6 md:p-8 space-y-5">
+                                        <div>
+                                            <label className={label}>Modelo do veículo *</label>
+                                            <input
+                                                required
+                                                value={form.modelo}
+                                                onChange={e => setForm({ ...form, modelo: e.target.value })}
+                                                placeholder="Ex.: Civic Type R, Ranger FX4, Hornet 600..."
+                                                className={field}
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className={label}>Tipo de Veículo *</label>
+                                                <select
+                                                    required
+                                                    value={form.tipo}
+                                                    onChange={e => setForm({ ...form, tipo: e.target.value })}
+                                                    className={field}
+                                                >
+                                                    <option value="CARRO">Carro</option>
+                                                    <option value="MOTO">Moto</option>
+                                                    <option value="CAMINHAO">Caminhão</option>
+                                                    <option value="VAN">Van / Utilitário</option>
+                                                    <option value="OUTRO">Outro</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className={label}>Marca / Fabricante *</label>
+                                                <input
+                                                    required
+                                                    value={form.marca}
+                                                    onChange={e => setForm({ ...form, marca: e.target.value })}
+                                                    placeholder="Ex.: Honda, Toyota, BMW..."
+                                                    className={field}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className={label}>Câmbio / Transmissão</label>
+                                                <select
+                                                    value={form.cambio}
+                                                    onChange={e => setForm({ ...form, cambio: e.target.value })}
+                                                    className={field}
+                                                >
+                                                    <option value="AUTOMATICO">Automático</option>
+                                                    <option value="MANUAL">Manual</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className={label}>Ano de Fabricação</label>
+                                                <input
+                                                    type="number"
+                                                    min="1900"
+                                                    max="2030"
+                                                    value={form.anoFabricacao}
+                                                    onChange={e => setForm({ ...form, anoFabricacao: e.target.value })}
+                                                    placeholder="Ex.: 2023"
+                                                    className={field}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className={label}>Quilometragem (km)</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={form.quilometragem}
+                                                    onChange={e => setForm({ ...form, quilometragem: e.target.value })}
+                                                    placeholder="Ex.: 45000"
+                                                    className={field}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className={label}>Cor Predominante</label>
+                                                <input
+                                                    value={form.cor}
+                                                    onChange={e => setForm({ ...form, cor: e.target.value })}
+                                                    placeholder="Ex.: Preto Perolizado, Cinza Nardo"
+                                                    className={field}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className={label}>Status de Revisão</label>
+                                                <select
+                                                    value={form.statusRevisao}
+                                                    onChange={e => setForm({ ...form, statusRevisao: e.target.value })}
+                                                    className={field}
+                                                >
+                                                    <option value="EM_DIA">Em dia / Revisado</option>
+                                                    <option value="PENDENTE">Revisão Pendente</option>
+                                                    <option value="EM_MANUTENCAO">Em Manutenção</option>
+                                                </select>
+                                            </div>
+                                            <label className="flex items-center gap-3 bg-neutral-900 border border-drive-border rounded-lg px-4 py-3 cursor-pointer mt-5 sm:mt-0 select-none">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={form.blindado}
+                                                    onChange={e => setForm({ ...form, blindado: e.target.checked })}
+                                                    className="w-4 h-4 accent-cyan-400 rounded cursor-pointer"
+                                                />
+                                                <span>
+                        <b className="block text-sm">Veículo Blindado</b>
+                        <small className="text-drive-subtext text-xs">Marque se o veículo possui blindagem</small>
+                      </span>
+                                            </label>
+                                        </div>
+
+                                        <div>
+                                            <label className={label}>Observações e Opcionais</label>
+                                            <textarea
+                                                rows="3"
+                                                value={form.observacoes}
+                                                onChange={e => setForm({ ...form, observacoes: e.target.value })}
+                                                placeholder="Histórico de manutenção, acessórios instalados, avarias..."
+                                                className={field}
+                                            ></textarea>
+                                        </div>
+
+                                        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => { setTela('principal'); setEditando(null); setForm(EMPTY); }}
+                                                className="flex-1 py-3 rounded-full border border-drive-border font-bold text-sm hover:bg-neutral-800 transition"
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className="flex-1 py-3 rounded-full bg-cyan-400 hover:bg-cyan-300 text-black font-extrabold text-sm transition"
+                                            >
+                                                {editando !== null ? 'Salvar alterações (PUT)' : 'Cadastrar veículo (POST)'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </section>
+                        )}
+                    </div>
+                </main>
+
+                {/* Config API Modal */}
+                {showConfig && (
+                    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div className="modal max-w-lg w-full p-6 rounded-2xl space-y-5 shadow-2xl">
+                            <div className="flex justify-between items-center">
+                                <h3 className="font-extrabold text-lg">Configurar URL da API REST</h3>
+                                <button onClick={() => setShowConfig(false)} className="text-drive-subtext text-xl hover:text-white">×</button>
+                            </div>
+                            <p className="text-drive-subtext text-sm">Informe a URL base da API de veículos. O aplicativo enviará requisições HTTP GET, POST, PUT e DELETE para esse endpoint.</p>
+                            <div>
+                                <label className={label}>URL Base da API</label>
+                                <input
+                                    value={urlEdit}
+                                    onChange={e => setUrlEdit(e.target.value)}
+                                    placeholder="http://localhost:8080/api/veiculos"
+                                    className={field}
+                                />
+                            </div>
+                            <div className="flex gap-3">
+                                <button onClick={() => setShowConfig(false)} className="flex-1 py-3 rounded-full border border-drive-border font-bold text-sm hover:bg-neutral-800 transition">Cancelar</button>
+                                <button
+                                    onClick={() => {
+                                        if (urlEdit.trim()) {
+                                            setApiUrl(urlEdit.trim().replace(/\/$/, ''));
+                                            setShowConfig(false);
+                                        }
+                                    }}
+                                    className="flex-1 py-3 rounded-full bg-cyan-400 hover:bg-cyan-300 text-black font-extrabold text-sm transition"
+                                >
+                                    Salvar e testar conexão
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Delete Confirmation Modal */}
+                {deletando !== null && (
+                    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div className="modal max-w-sm w-full p-6 rounded-2xl text-center space-y-5 shadow-2xl">
+                            <div className="mx-auto w-12 h-12 rounded-full bg-rose-500/10 text-rose-400 flex items-center justify-center">
+                                <Icons.Trash size={22} />
+                            </div>
+                            <h3 className="font-extrabold text-lg">Excluir este veículo?</h3>
+                            <p className="text-drive-subtext text-sm">
+                                Esta ação enviará uma requisição <code className="text-rose-300">DELETE {apiUrl}/{deletando}</code> para o backend.
+                            </p>
+                            <div className="flex gap-3">
+                                <button onClick={() => setDeletando(null)} className="flex-1 py-3 rounded-full bg-neutral-800 font-bold text-sm hover:bg-neutral-700 transition">Cancelar</button>
+                                <button onClick={() => excluir(deletando)} className="flex-1 py-3 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-sm transition">Excluir</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // Render root component
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
